@@ -2,40 +2,51 @@ import fs from 'node:fs';
 import path from 'node:path/posix';
 import type { Plugin, SourceMapInput } from 'rollup';
 import MagicString from 'magic-string';
-import type { EntryPointValid } from '../../utils/get-build-entry-points/types.ts';
+import type { BinaryOutput, EntryPointValid } from '../../utils/get-build-entry-points/types.ts';
 import { normalizePath } from '../../utils/normalize-path.ts';
+
+const defaultHashbang = '#!/usr/bin/env node';
 
 export const patchBinary = (
 	entryPoints: EntryPointValid[],
 ): Plugin => {
-	const binaryEntryPoints = entryPoints.filter(entry => entry.exportEntry.type === 'binary');
+	const binaryEntryPoints = entryPoints.filter(
+		(entry): entry is EntryPointValid<BinaryOutput> => entry.exportEntry.type === 'binary',
+	);
 	if (binaryEntryPoints.length === 0) {
 		return {
 			name: 'patch-binary',
 		};
 	}
 
-	let binaryFiles: Set<string>;
+	// inputName → hashbang from that bin's entry source (or default)
+	let hashbangByInputName: Map<string, string>;
 
 	return {
 		name: 'patch-binary',
 
 		options: () => {
 			// At this point, all inputNames will be set
-			binaryFiles = new Set(binaryEntryPoints.flatMap(entry => entry.inputNames!));
+			hashbangByInputName = new Map(
+				binaryEntryPoints.flatMap((entry) => {
+					const hashbang = entry.exportEntry.hashbang ?? defaultHashbang;
+					return entry.inputNames!.map(name => [name, hashbang] as const);
+				}),
+			);
 		},
 
 		renderChunk: (code, chunk, outputOptions) => {
-			if (
-				!chunk.isEntry
-				|| !chunk.facadeModuleId
-				|| !binaryFiles.has(chunk.name)
-			) {
+			if (!chunk.isEntry) {
+				return;
+			}
+
+			const hashbang = hashbangByInputName.get(chunk.name);
+			if (!hashbang) {
 				return;
 			}
 
 			const transformed = new MagicString(code);
-			transformed.prepend('#!/usr/bin/env node\n');
+			transformed.prepend(`${hashbang}\n`);
 
 			return {
 				code: transformed.toString(),

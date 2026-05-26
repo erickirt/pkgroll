@@ -20,6 +20,10 @@ type Output<T extends OutputSource> = {
 
 export type BinaryOutput = Output<SourcePackageJson> & {
 	type: 'binary';
+	// Hashbang line read from the entry source file at discovery time. Used by
+	// patch-binary to prepend the same hashbang on the output. Absent when the
+	// source has none; patch-binary falls back to `#!/usr/bin/env node`.
+	hashbang?: string;
 };
 
 export type PackageMapType = 'exports' | 'imports';

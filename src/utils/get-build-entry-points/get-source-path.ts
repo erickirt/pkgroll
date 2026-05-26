@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import path from 'node:path/posix';
 import { fsExists } from '../fs-exists.ts';
 import type { SrcDistPairInput } from '../../types.ts';
@@ -16,6 +17,21 @@ const tryExtensions = async (
 			};
 		}
 	}
+};
+
+const hashbangPattern = /^#!.*/;
+
+/**
+ * Read the entry source's hashbang so it can travel on the BinaryOutput
+ * record. Letting the data live with the entry point (rather than getting
+ * scraped opportunistically out of the Rollup transform pass) means
+ * patch-binary has a typed, single source of truth.
+ */
+const readHashbang = async (
+	sourcePath: string,
+): Promise<string | undefined> => {
+	const source = await fs.readFile(sourcePath, 'utf8');
+	return hashbangPattern.exec(source)?.[0];
 };
 
 const extensionMap = {
@@ -49,6 +65,10 @@ export const getSourcePath = async (
 	);
 
 	if (foundSourceFile) {
+		if (exportEntry.type === 'binary') {
+			exportEntry.hashbang = await readHashbang(foundSourceFile.sourcePath);
+		}
+
 		return {
 			exportEntry,
 			distExtension,

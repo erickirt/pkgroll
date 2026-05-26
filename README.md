@@ -142,7 +142,7 @@ _Pkgroll_ detects the format for each entry-point based on the file extension or
 | `exports.require` | CommonJS |
 | `exports.import` | Auto-detect |
 | `exports.types` | TypeScript declaration |
-| `bin` | Auto-detect<br>Also patched to be executable with the Node.js hashbang. |
+| `bin` | Auto-detect<br>Also patched to be executable with a hashbang ([see below](#bin-hashbang)). |
 
 _Auto-detect_ infers the type by extension or `package.json#type`:
 
@@ -152,6 +152,26 @@ _Auto-detect_ infers the type by extension or `package.json#type`:
 | `.mjs` | [ECMAScript Modules](https://nodejs.org/api/modules.html#the-mjs-extension) |
 | `.js` | Determined by `package.json#type`, defaulting to CommonJS |
 
+
+### Bin hashbang
+
+Entries declared in `package.json#bin` are made executable by prepending a hashbang and `chmod`ing the output to `0755`.
+
+By default, the hashbang is `#!/usr/bin/env node`. To target a different runtime (Bun, Deno, etc.) or pass runtime flags, just write your preferred hashbang at the top of the bin's source file (e.g. `src/cli.ts`):
+
+```ts
+#!/usr/bin/env bun
+
+console.log('Hello from bun!')
+```
+
+Hashbangs are read from the entry file only — hashbangs in imported modules are stripped (they would be invalid mid-chunk). `env -S` and multi-flag forms work too:
+
+```ts
+#!/usr/bin/env -S node --no-warnings
+```
+
+A package can mix runtimes across multiple bins. Bins without a source hashbang fall back to `#!/usr/bin/env node`.
 
 ### Dependency bundling & externalization
 
