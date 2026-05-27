@@ -1,24 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { on } from 'node:events';
 import { describe, test, expect } from 'manten';
 import { createFixture } from 'fs-fixture';
 import { execaNode } from 'execa';
 import { packageFixture, createPackageJson } from '../../fixtures.ts';
+import { waitForOutput } from '../../utils.ts';
 
 const pkgrollBinPath = path.resolve('./dist/cli.mjs');
-
-const waitForOutput = async (
-	subprocess: ReturnType<typeof execaNode>,
-	pattern: string,
-	timeout = 15_000,
-) => {
-	for await (const [data] of on(subprocess.stdout!, 'data', { signal: AbortSignal.timeout(timeout) })) {
-		if (data.toString().includes(pattern)) {
-			return;
-		}
-	}
-};
 
 export const watch = (nodePath: string) => describe('watch', () => {
 	test('rebuilds on package.json change', async () => {

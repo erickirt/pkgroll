@@ -1,11 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { on } from 'node:events';
 import { describe, test, expect } from 'manten';
 import { createFixture } from 'fs-fixture';
 import { execa, execaNode } from 'execa';
 import { createPackageJson } from '../../fixtures.ts';
-import { pkgroll } from '../../utils.ts';
+import { pkgroll, waitForOutput } from '../../utils.ts';
 
 const pkgrollBinPath = path.resolve('./dist/cli.mjs');
 
@@ -456,11 +455,8 @@ export const importAttributes = (nodePath: string) => describe('import attribute
 			);
 
 			try {
-				for await (const [data] of on(watchProcess.stdout!, 'data', { signal: AbortSignal.timeout(15_000) })) {
-					if (data.toString().includes('Built')) {
-						break;
-					}
-				}
+				// Cold startup uses the helper's generous default timeout.
+				await waitForOutput(watchProcess, 'Built');
 
 				const initial = await fixture.readFile('dist/index.mjs', 'utf8');
 				expect(initial).toMatch('<h1>Before</h1>');
@@ -470,11 +466,8 @@ export const importAttributes = (nodePath: string) => describe('import attribute
 					'<h1>After</h1>',
 				);
 
-				for await (const [data] of on(watchProcess.stdout!, 'data', { signal: AbortSignal.timeout(15_000) })) {
-					if (data.toString().includes('Built')) {
-						break;
-					}
-				}
+				// Warm rebuild — keep the tight timeout to catch real regressions.
+				await waitForOutput(watchProcess, 'Built', 15_000);
 
 				const updated = await fixture.readFile('dist/index.mjs', 'utf8');
 				expect(updated).toMatch('<h1>After</h1>');
